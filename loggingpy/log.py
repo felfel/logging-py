@@ -42,7 +42,8 @@ class LogEntryParser:
 
     @staticmethod
     def exception_to_string(exception: Exception):
-        stack = traceback.extract_stack()[:-3] + traceback.extract_tb(exception.__traceback__)  # add limit=??
+        # traceback.extract_stack()[:-3] # prints the complete stack trace
+        stack = traceback.extract_tb(exception.__traceback__)  # add limit=??
         pretty = traceback.format_list(stack)
         return ''.join(pretty) + '\n  {} {}'.format(exception.__class__, exception)
 
@@ -94,10 +95,8 @@ class LogEntryParser:
             "level": log_entry.log_level.name,
             "context": "" if log_entry.context is None else log_entry.context,
             "payload_type": "" if log_entry.payload_type is None else log_entry.payload_type,
+            "data": data
         }
-
-        if data is not None:
-            dto['data'] = data
 
         if exception_info is not None:
             dto["exception"] = {

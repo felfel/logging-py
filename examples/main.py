@@ -1,5 +1,5 @@
-from loggingpy.log import Logger
-import loggingpy.sink as sink
+from loggingpy import Logger
+from loggingpy import HttpSink
 import time
 import random
 import logging
@@ -14,8 +14,8 @@ if __name__ == "__main__":
     elasticUri = uris.elasticUri
 
     # these are two sinks of type HttpSink, which extend the logging.Handler class
-    sumoSink = sink.HttpSink(sumoUri)
-    elasticSink = sink.HttpSink(elasticUri)
+    sumoSink = HttpSink(sumoUri)
+    elasticSink = HttpSink(elasticUri)
 
     # however, you can use basic logging.Handler derived classes together with the ones here
     stdoutSink = logging.StreamHandler(sys.stdout)

@@ -24,7 +24,9 @@ class LogEntry:
      and from data and exception information (both optional).
     '''
 
-    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=datetime.datetime.utcnow(), data=None, exception: Exception=None):
+    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, data=None, exception: Exception=None):
+        if timestamp is None:
+            timestamp = datetime.datetime.utcnow()
         self.timestamp = timestamp
         self.context = context
         self.payload_type = payload_type

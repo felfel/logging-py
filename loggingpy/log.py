@@ -188,7 +188,7 @@ class Logger:
     def fatal(self, exception: Exception=None, payload_type: str="", data=None):
         self.write_entry(LogLevel.Fatal, payload_type=payload_type, data=data, exception=exception)
 
-    def shutdown(self):
+    def flush(self):
         [h.flush() for h in self.logger.handlers]
 
 

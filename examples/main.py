@@ -56,6 +56,6 @@ if __name__ == "__main__":
     except BaseException as e:  # this catch is required in order to shutdown the logger properly
         pass
 
-    print("Shutting down logger...")
-    logger.shutdown()
+    print("Flushing logger...")
+    logger.flush()
     print('...Done.')

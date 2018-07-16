@@ -224,6 +224,9 @@ class JsonFormatter(logging.Formatter):
             if classkey is not None and hasattr(obj, "__class__"):
                 data[classkey] = obj.__class__.__name__
             return data
+        elif isinstance(obj, datetime.datetime):
+            local_timezone = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+            return str(obj.astimezone(local_timezone))
         else:
             return obj
 

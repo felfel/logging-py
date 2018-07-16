@@ -140,6 +140,11 @@ class Logger:
                 self.handlers.append(queue_handler)
             logging.basicConfig(handlers=self.handlers)
 
+        self.logger.setLevel(logging.DEBUG)
+
+    def set_level(self, level):
+        self.logger.setLevel(level)
+
     def log(self, log_entry: LogEntry):
 
         if log_entry.context is None or log_entry.context is "":

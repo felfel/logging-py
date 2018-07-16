@@ -202,11 +202,36 @@ class JsonFormatter(logging.Formatter):
     def __init__(self):
         super(JsonFormatter).__init__()
 
+    def to_dict(self, obj, classkey=None):
+        '''
+        This method allows us to turn arbitrary objects into dictionaries. This should be sufficient for most purposes.
+        :param classkey:
+        :return:
+        '''
+        if isinstance(obj, dict):
+            data = {}
+            for (k, v) in obj.items():
+                data[k] = self.to_dict(v, classkey)
+            return data
+        elif hasattr(obj, "_ast"):
+            return self.to_dict(obj._ast())
+        elif hasattr(obj, "__iter__") and not isinstance(obj, str):
+            return [self.to_dict(v, classkey) for v in obj]
+        elif hasattr(obj, "__dict__"):
+            data = dict([(key, self.to_dict(value, classkey))
+                         for key, value in obj.__dict__.items()
+                         if not callable(value) and not key.startswith('_')])
+            if classkey is not None and hasattr(obj, "__class__"):
+                data[classkey] = obj.__class__.__name__
+            return data
+        else:
+            return obj
+
     def format(self, record):
         """Formats a log record and serializes to json"""
 
         dto = record.dto
-        json_dto = json.dumps(dto)
+        json_dto = json.dumps(self.to_dict(dto), default=str)
 
         if dto[Logger.data_property_placeholder_name] is not None:
             property_name = (dto['payload_type'] or dto['context']).replace('.', '_')

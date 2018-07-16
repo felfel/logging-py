@@ -114,19 +114,31 @@ class LogEntryParser:
 
 class Logger:
     data_property_placeholder_name = "@logentry_data"
+    sinks = []
 
-    def __init__(self,  sinks: list, context: str = ""):
+    @staticmethod
+    def with_sinks(sinks):
+        for sink in sinks:
+            Logger.with_sink(sink)
+
+    @staticmethod
+    def with_sink(sink):
+        Logger.sinks.append(sink)
+
+    def __init__(self, context: str = ""):
         self.context = context
         self.logger = logging.getLogger(context)
 
-        handlers = []
-        for sink in sinks:
-            log_queue = queue.Queue(-1)
-            queue_handler = logging.handlers.QueueHandler(log_queue)
-            queue_listener = logging.handlers.QueueListener(log_queue, sink)
-            queue_listener.start()
-            handlers.append(queue_handler)
-        logging.basicConfig(handlers=handlers)
+        if len(self.logger.handlers) == 0:
+            handlers = []
+            for sink in Logger.sinks:
+                log_queue = queue.Queue(-1)
+                queue_handler = logging.handlers.QueueHandler(log_queue)
+                queue_listener = logging.handlers.QueueListener(log_queue, sink)
+                queue_listener.start()
+                sink.setFormatter(JsonFormatter())
+                handlers.append(queue_handler)
+            logging.basicConfig(handlers=handlers)
 
     def log(self, log_entry: LogEntry):
 
@@ -135,33 +147,7 @@ class Logger:
 
         dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
 
-        json_dto = json.dumps(dto)
-
-        if dto[self.data_property_placeholder_name] is not None:
-            property_name = (dto['payload_type'] or dto['context']).replace('.', '_')
-            property_name = self.underscore(property_name)
-            json_dto = json_dto.replace(self.data_property_placeholder_name, property_name)
-
-        self.logger.log(level=self.get_log_level(log_entry.log_level), msg=json_dto)
-
-    @staticmethod
-    def underscore(word):
-        # from https://github.com/jpvanhal/inflection/blob/2ea54f615924c5cfc967d50cc179eacf0b269c08/inflection.py#L394
-        # if you require more of this library, consider getting it as a dependency
-        """
-        Make an underscored, lowercase form from the expression in the string.
-        Example::
-            >>> underscore("DeviceType")
-            "device_type"
-        As a rule of thumb you can think of :func:`underscore` as the inverse of
-        :func:`camelize`, though there are cases where that does not hold::
-            >>> camelize(underscore("IOError"))
-            "IoError"
-        """
-        word = re.sub(r"([A-Z]+)([A-Z][a-z])", r'\1_\2', word)
-        word = re.sub(r"([a-z\d])([A-Z])", r'\1_\2', word)
-        word = word.replace("-", "_")
-        return word.lower()
+        self.logger.log(self.get_log_level(log_entry.log_level), "", extra={'dto': dto})  # exc_info=True, stack_info=True, add this to drop out some dto info
 
     @staticmethod
     def get_log_level(log_level: Enum):
@@ -202,5 +188,44 @@ class Logger:
     def fatal(self, exception: Exception=None, payload_type: str="", data=None):
         self.write_entry(LogLevel.Fatal, payload_type=payload_type, data=data, exception=exception)
 
-    def shutdown(self):
+    def flush(self):
         [h.flush() for h in self.logger.handlers]
+
+
+class JsonFormatter(logging.Formatter):
+
+    def __init__(self):
+        super(JsonFormatter).__init__()
+
+    def format(self, record):
+        """Formats a log record and serializes to json"""
+
+        dto = record.dto
+        json_dto = json.dumps(dto)
+
+        if dto[Logger.data_property_placeholder_name] is not None:
+            property_name = (dto['payload_type'] or dto['context']).replace('.', '_')
+            property_name = self.underscore(property_name)
+            json_dto = json_dto.replace(Logger.data_property_placeholder_name, property_name)
+
+        return json_dto
+
+    @staticmethod
+    def underscore(word):
+        # from https://github.com/jpvanhal/inflection/blob/2ea54f615924c5cfc967d50cc179eacf0b269c08/inflection.py#L394
+        # if you require more of this library, consider getting it as a dependency
+        """
+        Make an underscored, lowercase form from the expression in the string.
+        Example::
+            >>> underscore("DeviceType")
+            "device_type"
+        As a rule of thumb you can think of :func:`underscore` as the inverse of
+        :func:`camelize`, though there are cases where that does not hold::
+            >>> camelize(underscore("IOError"))
+            "IoError"
+        """
+        word = re.sub(r"([A-Z]+)([A-Z][a-z])", r'\1_\2', word)
+        word = re.sub(r"([a-z\d])([A-Z])", r'\1_\2', word)
+        word = word.replace("-", "_")
+        return word.lower()
+

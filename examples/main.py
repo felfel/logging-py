@@ -20,8 +20,11 @@ if __name__ == "__main__":
     # however, you can use basic logging.Handler derived classes together with the ones here
     stdoutSink = logging.StreamHandler(sys.stdout)
 
-    # the logger object takes the list of handlers and pushes the messages to them
-    logger = Logger([sumoSink, elasticSink, stdoutSink], "Calculator")
+    # configure the logger with a list of handlers to which it pushes the messages
+    Logger.with_sinks([sumoSink, elasticSink, stdoutSink])
+
+    # get logger of context
+    logger = Logger("Calculator")
 
     # this is just some basic code that generates different types of exceptions and then pushes different messages
     try:
@@ -53,4 +56,6 @@ if __name__ == "__main__":
     except BaseException as e:  # this catch is required in order to shutdown the logger properly
         pass
 
+    print("Shutting down logger...")
     logger.shutdown()
+    print('...Done.')

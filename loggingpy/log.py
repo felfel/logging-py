@@ -130,15 +130,15 @@ class Logger:
         self.logger = logging.getLogger(context)
 
         if len(self.logger.handlers) == 0:
-            handlers = []
+            self.handlers = []
             for sink in Logger.sinks:
                 log_queue = queue.Queue(-1)
                 queue_handler = logging.handlers.QueueHandler(log_queue)
                 queue_listener = logging.handlers.QueueListener(log_queue, sink)
                 queue_listener.start()
                 sink.setFormatter(JsonFormatter())
-                handlers.append(queue_handler)
-            logging.basicConfig(handlers=handlers)
+                self.handlers.append(queue_handler)
+            logging.basicConfig(handlers=self.handlers)
 
     def log(self, log_entry: LogEntry):
 
@@ -189,7 +189,7 @@ class Logger:
         self.write_entry(LogLevel.Fatal, payload_type=payload_type, data=data, exception=exception)
 
     def flush(self):
-        [h.flush() for h in self.logger.handlers]
+        [h.flush() for h in self.handlers]
 
 
 class JsonFormatter(logging.Formatter):

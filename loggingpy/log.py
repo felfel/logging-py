@@ -8,9 +8,13 @@ import json
 import hashlib
 import re
 from loggingpy.exceptions import ExceptionInfo
+from typing import Union
 
 
 class LogLevel(Enum):
+    '''
+    We need our own log level enum in order to produce the proper names in the dto level attribute
+    '''
     Debug = 1
     Info = 2
     Warning = 3
@@ -117,7 +121,7 @@ class Logger:
     sinks = []
 
     @staticmethod
-    def with_sinks(sinks):
+    def with_sinks(sinks: list):
         for sink in sinks:
             Logger.with_sink(sink)
 
@@ -138,7 +142,8 @@ class Logger:
                 queue_listener.start()
                 sink.setFormatter(JsonFormatter())
                 self.handlers.append(queue_handler)
-            logging.basicConfig(handlers=self.handlers)
+                self.handlers.append(sink)
+                self.logger.addHandler(queue_handler)
 
         self.logger.setLevel(logging.DEBUG)
 
@@ -150,9 +155,7 @@ class Logger:
         if log_entry.context is None or log_entry.context is "":
             log_entry.context = self.context
 
-        dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
-
-        self.logger.log(self.get_log_level(log_entry.log_level), "", extra={'dto': dto})  # exc_info=True, stack_info=True, add this to drop out some dto info
+        self.logger.log(self.get_log_level(log_entry.log_level), "", extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
 
     @staticmethod
     def get_log_level(log_level: Enum):
@@ -178,19 +181,19 @@ class Logger:
 
     # convenience methods
 
-    def debug(self, exception: Exception=None, payload_type: str="", data=None):
+    def debug(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
         self.write_entry(LogLevel.Debug, payload_type=payload_type, data=data, exception=exception)
 
-    def info(self, exception: Exception=None, payload_type: str="", data=None):
+    def info(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
         self.write_entry(LogLevel.Info, payload_type=payload_type, data=data, exception=exception)
 
-    def warning(self, exception: Exception=None, payload_type: str="", data=None):
+    def warning(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
         self.write_entry(LogLevel.Warning, payload_type=payload_type, data=data, exception=exception)
 
-    def error(self, exception: Exception=None, payload_type: str="", data=None):
+    def error(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
         self.write_entry(LogLevel.Error, payload_type=payload_type, data=data, exception=exception)
 
-    def fatal(self, exception: Exception=None, payload_type: str="", data=None):
+    def fatal(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
         self.write_entry(LogLevel.Fatal, payload_type=payload_type, data=data, exception=exception)
 
     def flush(self):
@@ -233,8 +236,23 @@ class JsonFormatter(logging.Formatter):
     def format(self, record):
         """Formats a log record and serializes to json"""
 
-        dto = record.dto
-        json_dto = json.dumps(self.to_dict(dto), default=str)
+        if hasattr(record, 'log_entry'):
+            log_entry = record.log_entry
+        else:
+            log_entry = LogEntry(data=record.message)
+
+        dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
+
+        try:
+            json_dto = json.dumps(self.to_dict(dto), default=str)
+        except Exception as e:  # if it fails to serialize the dto
+            json_dto = json.dumps(self.to_dict({
+                "timestamp": datetime.datetime.utcnow(),
+                "level": LogLevel.Fatal,
+                "context": "Logging.Error",
+                "payload_type": "Logging.Error",
+                Logger.data_property_placeholder_name: LogEntryParser.exception_to_string(e)
+            }))
 
         if dto[Logger.data_property_placeholder_name] is not None:
             property_name = (dto['payload_type'] or dto['context']).replace('.', '_')

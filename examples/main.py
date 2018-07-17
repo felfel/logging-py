@@ -1,5 +1,5 @@
 from loggingpy import Logger
-from loggingpy import HttpSink
+from loggingpy import BatchedHttpSink
 import time
 import random
 import logging
@@ -13,9 +13,9 @@ if __name__ == "__main__":
     # Logz.io token url (just a basic string)
     elasticUri = uris.elasticUri
 
-    # these are two sinks of type HttpSink, which extend the logging.Handler class
-    sumoSink = HttpSink(sumoUri)
-    elasticSink = HttpSink(elasticUri)
+    # these are two sinks of type BatchedHttpSink, which extend the logging.Handler class
+    sumoSink = BatchedHttpSink(sumoUri, batch_size_limit=10, send_anyway_interval=1)
+    elasticSink = BatchedHttpSink(elasticUri, batch_size_limit=10, send_anyway_interval=1)
 
     # however, you can use basic logging.Handler derived classes together with the ones here
     stdoutSink = logging.StreamHandler(sys.stdout)

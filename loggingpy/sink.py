@@ -2,6 +2,7 @@ import requests
 import multiprocessing
 import logging
 import time
+import signal
 
 
 class HttpSink(logging.Handler):
@@ -17,12 +18,13 @@ class HttpSink(logging.Handler):
 
 
 def post_request(info):
-        endpoint_uri, log_entry = info[0], info[1]
-        return requests.post(endpoint_uri, log_entry, headers={"Content-type": "application/json"}).content
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    endpoint_uri, log_entry = info[0], info[1]
+    return requests.post(endpoint_uri, log_entry, headers={"Content-type": "application/json"}).content
 
 
 class BatchedHttpSink(logging.Handler):
-    def __init__(self, endpoint_uri: str, batch_size_limit: int, send_anyway_interval: int):
+    def __init__(self, endpoint_uri: str, batch_size_limit: int = 10, send_anyway_interval: int = 1):
         logging.Handler.__init__(self)
         self.endpoint_uri = endpoint_uri
 
@@ -48,8 +50,10 @@ class BatchedHttpSink(logging.Handler):
         except Exception as e:
             self.handleError(record)
 
-    def process_queue(self):
-        while self.queue_size > self.batch_size_limit or self.current_time > time.time() + self.send_anyway_interval:
+    def process_queue(self, flush_queue=False):
+        while self.queue_size > self.batch_size_limit \
+                or self.current_time > time.time() + self.send_anyway_interval \
+                or flush_queue:
             batch = []
             for i in range(0, self.batch_size_limit):
                 try:
@@ -59,12 +63,19 @@ class BatchedHttpSink(logging.Handler):
                 except Exception as e:
                     break
 
+            if len(batch) == 0:
+                break
+
             results = self.pool.map_async(post_request, [(self.endpoint_uri, b) for b in batch])
             self.current_time = time.time()
-            results.get()
+
+            try:
+                results.get()
+            except Exception as e:
+                pass
 
     def flush(self):
-        self.process_queue()
+        self.process_queue(flush_queue=True)
 
     def close(self):
         self.process_queue()

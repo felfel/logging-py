@@ -199,6 +199,10 @@ class Logger:
     def flush(self):
         [h.flush() for h in self.handlers]
 
+    def shutdown(self):
+        self.flush()
+        [h.close() for h in self.handlers]
+
 
 class JsonFormatter(logging.Formatter):
 

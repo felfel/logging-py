@@ -253,7 +253,7 @@ class JsonFormatter(logging.Formatter):
             log_entry = LogEntry(log_level=LogLevel(record.levelno),
                                  context=record.name,
                                  payload_type='ExternalLoggerMessage',
-                                 data=record.message)
+                                 data=record.msg)
 
         dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
 

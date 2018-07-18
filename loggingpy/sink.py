@@ -68,6 +68,8 @@ class BatchedHttpSink(logging.Handler):
                     self.queue_size -= 1
                 except Exception as e:
                     break
+                finally:
+                    self.current_time = time.time()
 
             if len(batch) == 0:
                 break
@@ -76,8 +78,6 @@ class BatchedHttpSink(logging.Handler):
                 p = multiprocessing.Process(target=post_request, args=((self.endpoint_uri, b),))
                 p.start()
                 pool.append(p)
-
-            self.current_time = time.time()
 
             for p in pool:
                 p.join()

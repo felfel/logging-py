@@ -56,7 +56,25 @@ if __name__ == "__main__":
     except BaseException as e:  # this catch is required in order to shutdown the logger properly
         pass
 
-    print("Flushing & shutting logger down...")
+    # it is possible to use native loggers with the same name too, which will then log
+    native_logger = logging.getLogger('Calculator')
+    native_logger.info('Logging via the native logger does work too.')
+
+    # it is possible to make a native logger log its messages in a structured way
+    my_logger = logging.getLogger('MoinLogger')
+    my_logger.setLevel(logging.DEBUG)
+    my_logger.addHandler(sumoSink)
+    my_logger.addHandler(elasticSink)
+    my_logger.addHandler(stdoutSink)
+    my_logger.debug('You can add the handlers to a native logger too to make it log in a structured way.')
+
+    print("Flushing logger1...")
     logger.flush()
-    logger.shutdown()
+    print('...Done.')
+
+    logger2 = Logger('Calculator')
+    logger2.info(data='A second logger can be opened and works out of the box.')
+
+    print("Flushing logger2...")
+    logger2.flush()
     print('...Done.')

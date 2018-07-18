@@ -15,14 +15,19 @@ class HttpSink(logging.Handler):
 
     def emit(self, record):
         log_entry = self.format(record)
-
-        return requests.post(self.endpoint_uri, log_entry, headers={"Content-type": "application/json"}).content
+        try:
+            return requests.post(self.endpoint_uri, log_entry, headers={"Content-type": "application/json"}).content
+        except Exception as ex: # after the post retries, all bets are off
+            print(ex)
 
 
 def post_request(info):
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     endpoint_uri, log_entry = info[0], info[1]
-    return requests.post(endpoint_uri, log_entry, headers={"Content-type": "application/json"}).content
+    try:
+        return requests.post(endpoint_uri, log_entry, headers={"Content-type": "application/json"}).content
+    except Exception as ex:  # after the post retries, all bets are off
+        print(ex)
 
 
 class BatchedHttpSink(logging.Handler):

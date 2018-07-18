@@ -3,6 +3,7 @@ import multiprocessing
 import logging
 import time
 import signal
+from loggingpy.log import JsonFormatter
 
 
 class HttpSink(logging.Handler):
@@ -10,6 +11,7 @@ class HttpSink(logging.Handler):
     def __init__(self, endpoint_uri: str):
         logging.Handler.__init__(self)
         self.endpoint_uri = endpoint_uri
+        self.setFormatter(JsonFormatter())
 
     def emit(self, record):
         log_entry = self.format(record)
@@ -31,9 +33,10 @@ class BatchedHttpSink(logging.Handler):
         self.batch_size_limit = batch_size_limit
         self.send_anyway_interval = send_anyway_interval
         self.queue = multiprocessing.Queue(-1)
-        self.pool = multiprocessing.Pool(50 if batch_size_limit > 50 else batch_size_limit)
+
         self.current_time = time.time()
         self.queue_size = 0
+        self.setFormatter(JsonFormatter())
 
     def send(self, s):
         self.queue.put_nowait(s)
@@ -51,6 +54,9 @@ class BatchedHttpSink(logging.Handler):
             self.handleError(record)
 
     def process_queue(self, flush_queue=False):
+
+        pool = []
+
         while self.queue_size > self.batch_size_limit \
                 or self.current_time > time.time() + self.send_anyway_interval \
                 or flush_queue:
@@ -66,19 +72,19 @@ class BatchedHttpSink(logging.Handler):
             if len(batch) == 0:
                 break
 
-            results = self.pool.map_async(post_request, [(self.endpoint_uri, b) for b in batch])
+            for b in batch:
+                p = multiprocessing.Process(target=post_request, args=((self.endpoint_uri, b),))
+                p.start()
+                pool.append(p)
+
             self.current_time = time.time()
 
-            try:
-                results.get()
-            except Exception as e:
-                pass
+            for p in pool:
+                p.join()
 
     def flush(self):
         self.process_queue(flush_queue=True)
 
     def close(self):
-        self.process_queue()
-        self.pool.terminate()
-        self.pool.join()
+        self.flush()
         logging.Handler.close(self)

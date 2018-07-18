@@ -15,11 +15,11 @@ class LogLevel(Enum):
     '''
     We need our own log level enum in order to produce the proper names in the dto level attribute
     '''
-    Debug = 1
-    Info = 2
-    Warning = 3
-    Error = 4
-    Fatal = 5
+    Debug = 10
+    Info = 20
+    Warning = 30
+    Error = 40
+    Fatal = 50
 
 
 class LogEntry:
@@ -49,7 +49,6 @@ class LogEntryParser:
 
     @staticmethod
     def exception_to_string(exception: Exception):
-        # traceback.extract_stack()[:-3] # prints the complete stack trace
         stack = traceback.extract_tb(exception.__traceback__)  # add limit=??
         pretty = traceback.format_list(stack)
         return ''.join(pretty) + '\n  {} {}'.format(exception.__class__, exception)
@@ -58,7 +57,6 @@ class LogEntryParser:
     def hash_exception(exception: Exception):
         stack_trace = LogEntryParser.exception_to_string(exception)
         stack_trace_lines = stack_trace.split('\n')
-        # stack_trace_lines = [l for l in stack_trace.split('\n') if not LogEntryParser.file_line.match(l)]
         stack_trace_lines = stack_trace_lines[:-2]
         stack_trace_lines[-1] = stack_trace_lines[-1].split('(')[0]
 
@@ -98,7 +96,7 @@ class LogEntryParser:
             data = {"Message": data}
 
         dto = {
-            "timestamp": log_entry.timestamp.isoformat(),
+            "timestamp": log_entry.timestamp,
             "level": log_entry.log_level.name,
             "context": "" if log_entry.context is None else log_entry.context,
             "payload_type": "" if log_entry.payload_type is None else log_entry.payload_type,
@@ -117,37 +115,61 @@ class LogEntryParser:
 
 
 class Logger:
+    '''
+    The structured logger is just a wrapper around the builtin standard python logger. It simplifies the interface of
+    logging to make proper structured logger calls.
+    '''
     data_property_placeholder_name = "@logentry_data"
     sinks = []
 
     @staticmethod
     def with_sinks(sinks: list):
+        '''
+        Append the given sinks to all structured loggers.
+        :param sinks:
+        :return:
+        '''
         for sink in sinks:
             Logger.with_sink(sink)
 
     @staticmethod
     def with_sink(sink):
+        '''
+        Append the given sink to all structured loggers.
+        :param sink:
+        :return:
+        '''
         Logger.sinks.append(sink)
+        sink.setFormatter(JsonFormatter())  # all appended sinks get the json formatter in order to log only structured messages
 
     def __init__(self, context: str = ""):
         self.context = context
         self.logger = logging.getLogger(context)
+        self.handlers = []
 
         if len(self.logger.handlers) == 0:
-            self.handlers = []
             for sink in Logger.sinks:
+                # each sink we add to the logger gets a queue handler prepended in order to allow the message to enqueue
+                # and thereby make the logger non-blocking to the code
                 log_queue = queue.Queue(-1)
                 queue_handler = logging.handlers.QueueHandler(log_queue)
                 queue_listener = logging.handlers.QueueListener(log_queue, sink)
                 queue_listener.start()
-                sink.setFormatter(JsonFormatter())
-                self.handlers.append(queue_handler)
+
+                # we collect the handlers in order to be able to flush them at the end and ensure graceful shutdown
                 self.handlers.append(sink)
                 self.logger.addHandler(queue_handler)
+        else:
+            self.handlers.extend(Logger.sinks)
 
         self.logger.setLevel(logging.DEBUG)
 
     def set_level(self, level):
+        '''
+        Set the general log level.
+        :param level:
+        :return:
+        '''
         self.logger.setLevel(level)
 
     def log(self, log_entry: LogEntry):
@@ -155,25 +177,7 @@ class Logger:
         if log_entry.context is None or log_entry.context is "":
             log_entry.context = self.context
 
-        self.logger.log(self.get_log_level(log_entry.log_level), "", extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
-
-    @staticmethod
-    def get_log_level(log_level: Enum):
-
-        if log_level is LogLevel.Debug:
-            return logging.DEBUG
-
-        if log_level is LogLevel.Info:
-            return logging.INFO
-
-        if log_level is LogLevel.Warning:
-            return logging.WARNING
-
-        if log_level is LogLevel.Error:
-            return logging.ERROR
-
-        if log_level is LogLevel.Fatal:
-            return logging.FATAL
+        self.logger.log(log_entry.log_level.value, "", extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
 
     def write_entry(self, log_level: Enum, payload_type: str, data=None, exception: Exception = None):
         log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, data=data, exception=exception)
@@ -205,6 +209,9 @@ class Logger:
 
 
 class JsonFormatter(logging.Formatter):
+    '''
+    The Json formatter turns all types of classes into dictionaries, and then formats it into a json.
+    '''
 
     def __init__(self):
         super(JsonFormatter).__init__()
@@ -243,7 +250,10 @@ class JsonFormatter(logging.Formatter):
         if hasattr(record, 'log_entry'):
             log_entry = record.log_entry
         else:
-            log_entry = LogEntry(data=record.message)
+            log_entry = LogEntry(log_level=LogLevel(record.levelno),
+                                 context=record.name,
+                                 payload_type='ExternalLoggerMessage',
+                                 data=record.message)
 
         dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
 

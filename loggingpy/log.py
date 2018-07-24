@@ -142,7 +142,7 @@ class Logger:
         Logger.sinks.append(sink)
         sink.setFormatter(JsonFormatter())  # all appended sinks get the json formatter in order to log only structured messages
 
-    def __init__(self, context: str = "", prefix_payload_type: bool = False):
+    def __init__(self, context: str = "", prefix_payload_type: bool = True):
         self.context = context
         self.logger = logging.getLogger(context)
         self.handlers = []

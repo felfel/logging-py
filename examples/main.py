@@ -68,13 +68,13 @@ if __name__ == "__main__":
     my_logger.addHandler(stdoutSink)
     my_logger.debug('You can add the handlers to a native logger too to make it log in a structured way.')
 
-    print("Flushing logger1...")
-    logger.flush()
+    print("Flushing logger...")
+    Logger.flush()
     print('...Done.')
 
     logger2 = Logger('Calculator')
     logger2.info(data='A second logger can be opened and works out of the box.')
 
-    print("Flushing logger2...")
-    logger2.flush()
+    print("Flushing logger...")
+    Logger.flush()
     print('...Done.')

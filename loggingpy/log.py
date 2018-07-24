@@ -200,12 +200,14 @@ class Logger:
     def fatal(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
         self.write_entry(LogLevel.Fatal, payload_type=payload_type, data=data, exception=exception)
 
-    def flush(self):
-        [h.flush() for h in self.handlers]
+    @staticmethod
+    def flush():
+        [h.flush() for h in Logger.sinks]
 
-    def shutdown(self):
-        self.flush()
-        [h.close() for h in self.handlers]
+    @staticmethod
+    def shutdown():
+        Logger.flush()
+        [h.close() for h in Logger.sinks]
 
 
 class JsonFormatter(logging.Formatter):

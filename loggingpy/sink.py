@@ -17,7 +17,7 @@ class HttpSink(logging.Handler):
         log_entry = self.format(record)
         try:
             return requests.post(self.endpoint_uri, log_entry, headers={"Content-type": "application/json"}).content
-        except Exception as ex: # after the post retries, all bets are off
+        except Exception as ex:  # after the post retries, all bets are off
             print(ex)
 
 

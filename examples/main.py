@@ -24,7 +24,7 @@ if __name__ == "__main__":
     Logger.with_sinks([sumoSink, elasticSink, stdoutSink])
 
     # get logger of context
-    logger = Logger("Calculator")
+    logger = Logger("Calculator", prefix_payload_type=True)
 
     # this is just some basic code that generates different types of exceptions and then pushes different messages
     try:

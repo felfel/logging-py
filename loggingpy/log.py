@@ -142,10 +142,11 @@ class Logger:
         Logger.sinks.append(sink)
         sink.setFormatter(JsonFormatter())  # all appended sinks get the json formatter in order to log only structured messages
 
-    def __init__(self, context: str = ""):
+    def __init__(self, context: str = "", prefix_payload_type: bool = False):
         self.context = context
         self.logger = logging.getLogger(context)
         self.handlers = []
+        self.prefix_payload_type = prefix_payload_type
 
         if len(self.logger.handlers) == 0:
             for sink in Logger.sinks:
@@ -180,6 +181,9 @@ class Logger:
         self.logger.log(log_entry.log_level.value, "", extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
 
     def write_entry(self, log_level: Enum, payload_type: str, data=None, exception: Exception = None):
+
+        if self.prefix_payload_type and self.context is not None and self.context is not "":
+            payload_type = self.context + '.' + payload_type
         log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, data=data, exception=exception)
         self.log(log_entry)
 

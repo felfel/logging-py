@@ -1,2 +1,2 @@
 from loggingpy.log import Logger, JsonFormatter
-from loggingpy.sink import HttpSink, BatchedHttpSink
+from loggingpy.sink import SimpleHttpSink, BatchedHttpSink, BundlingHttpSink

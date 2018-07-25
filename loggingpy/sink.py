@@ -4,9 +4,15 @@ import logging
 import time
 import signal
 from loggingpy.log import JsonFormatter
+import logging.handlers
+
+from .sender import HttpSender
 
 
-class HttpSink(logging.Handler):
+class SimpleHttpSink(logging.Handler):
+    """
+    Sends every log message in series one-by-one.
+    """
 
     def __init__(self, endpoint_uri: str):
         logging.Handler.__init__(self)
@@ -31,6 +37,10 @@ def post_request(info):
 
 
 class BatchedHttpSink(logging.Handler):
+    """
+    Sends messages in batches using multithreading. Order of uploads is not deterministic. Make sure to include a time
+    stamp into this message.
+    """
     def __init__(self, endpoint_uri: str, batch_size_limit: int = 10, send_anyway_interval: int = 1):
         logging.Handler.__init__(self)
         self.endpoint_uri = endpoint_uri
@@ -93,3 +103,28 @@ class BatchedHttpSink(logging.Handler):
     def close(self):
         self.flush()
         logging.Handler.close(self)
+
+
+class BundlingHttpSink(logging.Handler):
+    """
+    Sends messages by bundling multiple messages into one request.
+    Adjusted version from: https://github.com/logzio/logzio-python-handler/tree/master/logzio
+    """
+    def __init__(self,
+                 url,
+                 logs_drain_timeout=3,
+                 debug=False):
+
+        self.http_sender = HttpSender(
+            url=url,
+            logs_drain_timeout=logs_drain_timeout,
+            debug=debug)
+        logging.Handler.__init__(self)
+
+    def flush(self):
+        self.http_sender.flush()
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        self.http_sender.append(log_entry)
+

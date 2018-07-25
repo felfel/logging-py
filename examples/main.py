@@ -1,5 +1,5 @@
 from loggingpy import Logger
-from loggingpy import BatchedHttpSink
+from loggingpy import BatchedHttpSink, BundlingHttpSink
 import time
 import random
 import logging
@@ -14,8 +14,8 @@ if __name__ == "__main__":
     elasticUri = uris.elasticUri
 
     # these are two sinks of type BatchedHttpSink, which extend the logging.Handler class
-    sumoSink = BatchedHttpSink(sumoUri, batch_size_limit=10, send_anyway_interval=1)
-    elasticSink = BatchedHttpSink(elasticUri, batch_size_limit=10, send_anyway_interval=1)
+    sumoSink = BundlingHttpSink(sumoUri)
+    elasticSink = BundlingHttpSink(elasticUri)
 
     # however, you can use basic logging.Handler derived classes together with the ones here
     stdoutSink = logging.StreamHandler(sys.stdout)

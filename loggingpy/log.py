@@ -219,8 +219,8 @@ class JsonFormatter(logging.Formatter):
     The Json formatter turns all types of classes into dictionaries, and then formats it into a json.
     '''
 
-    def __init__(self):
-        super(JsonFormatter).__init__()
+    def __init__(self, fmt=None, datefmt=None, style='%'):
+        logging.Formatter.__init__(self)
 
     def to_dict(self, obj, classkey=None):
         '''

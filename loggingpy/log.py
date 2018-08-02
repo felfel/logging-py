@@ -52,7 +52,7 @@ class LogEntryParser:
         :param exception:
         :return:
         """
-        stack = traceback.extract_tb(exception.__traceback__)  # add limit=??
+        stack = traceback.extract_tb(exception.__traceback__)
         pretty = traceback.format_list(stack)
         return ''.join(pretty) + '\n  {} {}'.format(exception.__class__, exception)
 
@@ -110,11 +110,13 @@ class LogEntryParser:
         dto = {
             "timestamp": log_entry.timestamp,
             "level": log_entry.log_level.name,
-            "message": log_entry.message,
             "context": "" if log_entry.context is None else log_entry.context,
             "payload_type": "" if log_entry.payload_type is None else log_entry.payload_type,
             Logger.data_property_placeholder_name: data  # here we set the data property with a special key
         }
+
+        if log_entry.message is not "" or log_entry.message is not None:
+            dto["message"] = log_entry.message
 
         if exception_info is not None:
             dto["exception"] = {
@@ -233,7 +235,7 @@ class JsonFormatter(logging.Formatter):
     """
 
     def __init__(self, fmt=None, datefmt=None, style='%'):
-        logging.Formatter.__init__(self)
+        logging.Formatter.__init__(self, fmt, datefmt, style)
 
     def to_dict(self, obj, classkey=None):
         """
@@ -281,7 +283,7 @@ class JsonFormatter(logging.Formatter):
         except Exception as e:  # if it fails to serialize the dto
             json_dto = json.dumps(self.to_dict({
                 "timestamp": datetime.datetime.utcnow(),
-                "message": record.msg % record.args if record.args is not None else record.msg,
+                "message": "Could not unwrap log entry.",
                 "level": LogLevel.Fatal,
                 "context": "Logging.Error",
                 "payload_type": "Logging.Error",

@@ -12,9 +12,9 @@ from typing import Union
 
 
 class LogLevel(Enum):
-    '''
+    """
     We need our own log level enum in order to produce the proper names in the dto level attribute
-    '''
+    """
     Debug = 10
     Info = 20
     Warning = 30
@@ -23,26 +23,27 @@ class LogLevel(Enum):
 
 
 class LogEntry:
-    '''
+    """
     A log entry consists of a log level, a timestamp, a context and a payload ( which are all required)
      and from data and exception information (both optional).
-    '''
+    """
 
-    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, data=None, exception: Exception=None):
+    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, message='', data=None, exception: Exception=None):
         if timestamp is None:
             timestamp = datetime.datetime.utcnow()
         self.timestamp = timestamp
         self.context = context
         self.payload_type = payload_type
         self.log_level = log_level
+        self.message = message
         self.data = data
         self.exception = exception
 
 
 class LogEntryParser:
-    '''
+    """
     The Log entry parser helps to turn log entries into serializable data for the logger.
-    '''
+    """
 
     # Use this if you want to filter the path and line
     # file_line = re.compile('.*File.*line.*')
@@ -98,6 +99,7 @@ class LogEntryParser:
         dto = {
             "timestamp": log_entry.timestamp,
             "level": log_entry.log_level.name,
+            "message": log_entry.message,
             "context": "" if log_entry.context is None else log_entry.context,
             "payload_type": "" if log_entry.payload_type is None else log_entry.payload_type,
             Logger.data_property_placeholder_name: data  # here we set the data property with a special key
@@ -115,10 +117,10 @@ class LogEntryParser:
 
 
 class Logger:
-    '''
+    """
     The structured logger is just a wrapper around the builtin standard python logger. It simplifies the interface of
     logging to make proper structured logger calls.
-    '''
+    """
     data_property_placeholder_name = "@logentry_data"
     sinks = []
 
@@ -178,31 +180,31 @@ class Logger:
         if log_entry.context is None or log_entry.context is "":
             log_entry.context = self.context
 
-        self.logger.log(log_entry.log_level.value, "", extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
+        self.logger.log(log_entry.log_level.value, log_entry.message, extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
 
-    def write_entry(self, log_level: Enum, payload_type: str, data=None, exception: Exception = None):
+    def write_entry(self, log_level: Enum, payload_type: str, message: str='', data=None, exception: Exception = None):
 
         if self.prefix_payload_type and self.context is not None and self.context is not "":
             payload_type = self.context + '.' + payload_type
-        log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, data=data, exception=exception)
+        log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, message=message, data=data, exception=exception)
         self.log(log_entry)
 
     # convenience methods
 
-    def debug(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Debug, payload_type=payload_type, data=data, exception=exception)
+    def debug(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Debug, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def info(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Info, payload_type=payload_type, data=data, exception=exception)
+    def info(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Info, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def warning(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Warning, payload_type=payload_type, data=data, exception=exception)
+    def warning(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Warning, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def error(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Error, payload_type=payload_type, data=data, exception=exception)
+    def error(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Error, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def fatal(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Fatal, payload_type=payload_type, data=data, exception=exception)
+    def fatal(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Fatal, payload_type=payload_type, message=message, data=data, exception=exception)
 
     @staticmethod
     def flush():
@@ -259,7 +261,7 @@ class JsonFormatter(logging.Formatter):
             log_entry = LogEntry(log_level=LogLevel(record.levelno),
                                  context=record.name,
                                  payload_type='ExternalLoggerMessage',
-                                 data=(record.msg % (record.args)))
+                                 message=record.msg % record.args if record.args is not None else record.msg)
 
         dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
 
@@ -268,6 +270,7 @@ class JsonFormatter(logging.Formatter):
         except Exception as e:  # if it fails to serialize the dto
             json_dto = json.dumps(self.to_dict({
                 "timestamp": datetime.datetime.utcnow(),
+                "message": record.msg % record.args if record.args is not None else record.msg,
                 "level": LogLevel.Fatal,
                 "context": "Logging.Error",
                 "payload_type": "Logging.Error",

@@ -134,7 +134,7 @@ class HttpSender:
                     else:
                         self.logger.debug(
                             'Successfully sent bulk of %s logs to '
-                            'Logz.io!', len(logs_list))
+                            'url ' + str(self.url), len(logs_list))
                         should_backup_to_disk = False
                         break
                 except Exception as e:

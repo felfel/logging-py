@@ -37,7 +37,7 @@ if __name__ == "__main__":
     my_logger.debug('You can add the handlers to a native logger too to make it log in a structured way.')
 
     logger2 = Logger('Calculator')
-    logger2.info(data='A second logger can be opened and works out of the box.')
+    logger2.info('A second logger can be opened and works out of the box.')
 
     print("Flushing logger...")
     Logger.flush()

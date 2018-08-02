@@ -12,9 +12,9 @@ from typing import Union
 
 
 class LogLevel(Enum):
-    '''
-    We need our own log level enum in order to produce the proper names in the dto level attribute
-    '''
+    """
+    We need our own log level enum in order to produce the proper names in the dto level attribute.
+    """
     Debug = 10
     Info = 20
     Warning = 30
@@ -23,38 +23,46 @@ class LogLevel(Enum):
 
 
 class LogEntry:
-    '''
+    """
     A log entry consists of a log level, a timestamp, a context and a payload ( which are all required)
-     and from data and exception information (both optional).
-    '''
+    and from data and exception information (both optional).
+    """
 
-    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, data=None, exception: Exception=None):
+    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, message='', data=None, exception: Exception=None):
         if timestamp is None:
             timestamp = datetime.datetime.utcnow()
         self.timestamp = timestamp
         self.context = context
         self.payload_type = payload_type
         self.log_level = log_level
+        self.message = message
         self.data = data
         self.exception = exception
 
 
 class LogEntryParser:
-    '''
+    """
     The Log entry parser helps to turn log entries into serializable data for the logger.
-    '''
-
-    # Use this if you want to filter the path and line
-    # file_line = re.compile('.*File.*line.*')
+    """
 
     @staticmethod
     def exception_to_string(exception: Exception):
-        stack = traceback.extract_tb(exception.__traceback__)  # add limit=??
+        """
+        Turn an exception into a string.
+        :param exception:
+        :return:
+        """
+        stack = traceback.extract_tb(exception.__traceback__)
         pretty = traceback.format_list(stack)
         return ''.join(pretty) + '\n  {} {}'.format(exception.__class__, exception)
 
     @staticmethod
     def hash_exception(exception: Exception):
+        """
+        Create a hierarchical hash of the exception.
+        :param exception:
+        :return:
+        """
         stack_trace = LogEntryParser.exception_to_string(exception)
         stack_trace_lines = stack_trace.split('\n')
         stack_trace_lines = stack_trace_lines[:-2]
@@ -77,7 +85,11 @@ class LogEntryParser:
 
     @staticmethod
     def parse_log_entry(log_entry: LogEntry):
-
+        """
+        Parse the log entry into a data transfer object (basically a dictionary).
+        :param log_entry:
+        :return:
+        """
         exception = log_entry.exception
         exception_info = None
 
@@ -103,6 +115,9 @@ class LogEntryParser:
             Logger.data_property_placeholder_name: data  # here we set the data property with a special key
         }
 
+        if log_entry.message is not "" or log_entry.message is not None:
+            dto["message"] = log_entry.message
+
         if exception_info is not None:
             dto["exception"] = {
                 "exception_type": exception_info.exception_type,
@@ -115,30 +130,30 @@ class LogEntryParser:
 
 
 class Logger:
-    '''
+    """
     The structured logger is just a wrapper around the builtin standard python logger. It simplifies the interface of
     logging to make proper structured logger calls.
-    '''
+    """
     data_property_placeholder_name = "@logentry_data"
     sinks = []
 
     @staticmethod
     def with_sinks(sinks: list):
-        '''
+        """
         Append the given sinks to all structured loggers.
         :param sinks:
         :return:
-        '''
+        """
         for sink in sinks:
             Logger.with_sink(sink)
 
     @staticmethod
     def with_sink(sink):
-        '''
+        """
         Append the given sink to all structured loggers.
         :param sink:
         :return:
-        '''
+        """
         Logger.sinks.append(sink)
         sink.setFormatter(JsonFormatter())  # all appended sinks get the json formatter in order to log only structured messages
 
@@ -166,11 +181,11 @@ class Logger:
         self.logger.setLevel(logging.DEBUG)
 
     def set_level(self, level):
-        '''
+        """
         Set the general log level.
         :param level:
         :return:
-        '''
+        """
         self.logger.setLevel(level)
 
     def log(self, log_entry: LogEntry):
@@ -178,31 +193,31 @@ class Logger:
         if log_entry.context is None or log_entry.context is "":
             log_entry.context = self.context
 
-        self.logger.log(log_entry.log_level.value, "", extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
+        self.logger.log(log_entry.log_level.value, log_entry.message, extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
 
-    def write_entry(self, log_level: Enum, payload_type: str, data=None, exception: Exception = None):
+    def write_entry(self, log_level: Enum, payload_type: str, message: str='', data=None, exception: Exception = None):
 
         if self.prefix_payload_type and self.context is not None and self.context is not "":
             payload_type = self.context + '.' + payload_type
-        log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, data=data, exception=exception)
+        log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, message=message, data=data, exception=exception)
         self.log(log_entry)
 
     # convenience methods
 
-    def debug(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Debug, payload_type=payload_type, data=data, exception=exception)
+    def debug(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Debug, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def info(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Info, payload_type=payload_type, data=data, exception=exception)
+    def info(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Info, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def warning(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Warning, payload_type=payload_type, data=data, exception=exception)
+    def warning(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Warning, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def error(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Error, payload_type=payload_type, data=data, exception=exception)
+    def error(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Error, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def fatal(self, exception: Exception=None, payload_type: str="", data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Fatal, payload_type=payload_type, data=data, exception=exception)
+    def fatal(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+        self.write_entry(LogLevel.Fatal, payload_type=payload_type, message=message, data=data, exception=exception)
 
     @staticmethod
     def flush():
@@ -215,19 +230,19 @@ class Logger:
 
 
 class JsonFormatter(logging.Formatter):
-    '''
+    """
     The Json formatter turns all types of classes into dictionaries, and then formats it into a json.
-    '''
+    """
 
     def __init__(self, fmt=None, datefmt=None, style='%'):
-        logging.Formatter.__init__(self)
+        logging.Formatter.__init__(self, fmt, datefmt, style)
 
     def to_dict(self, obj, classkey=None):
-        '''
+        """
         This method allows us to turn arbitrary objects into dictionaries. This should be sufficient for most purposes.
         :param classkey:
         :return:
-        '''
+        """
         if isinstance(obj, dict):
             data = {}
             for (k, v) in obj.items():
@@ -259,7 +274,7 @@ class JsonFormatter(logging.Formatter):
             log_entry = LogEntry(log_level=LogLevel(record.levelno),
                                  context=record.name,
                                  payload_type='ExternalLoggerMessage',
-                                 data=(record.msg % (record.args)))
+                                 message=record.msg % record.args if record.args is not None else record.msg)
 
         dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
 
@@ -268,6 +283,7 @@ class JsonFormatter(logging.Formatter):
         except Exception as e:  # if it fails to serialize the dto
             json_dto = json.dumps(self.to_dict({
                 "timestamp": datetime.datetime.utcnow(),
+                "message": "Could not unwrap log entry.",
                 "level": LogLevel.Fatal,
                 "context": "Logging.Error",
                 "payload_type": "Logging.Error",

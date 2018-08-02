@@ -13,7 +13,7 @@ from typing import Union
 
 class LogLevel(Enum):
     """
-    We need our own log level enum in order to produce the proper names in the dto level attribute
+    We need our own log level enum in order to produce the proper names in the dto level attribute.
     """
     Debug = 10
     Info = 20
@@ -25,7 +25,7 @@ class LogLevel(Enum):
 class LogEntry:
     """
     A log entry consists of a log level, a timestamp, a context and a payload ( which are all required)
-     and from data and exception information (both optional).
+    and from data and exception information (both optional).
     """
 
     def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, message='', data=None, exception: Exception=None):
@@ -45,17 +45,24 @@ class LogEntryParser:
     The Log entry parser helps to turn log entries into serializable data for the logger.
     """
 
-    # Use this if you want to filter the path and line
-    # file_line = re.compile('.*File.*line.*')
-
     @staticmethod
     def exception_to_string(exception: Exception):
+        """
+        Turn an exception into a string.
+        :param exception:
+        :return:
+        """
         stack = traceback.extract_tb(exception.__traceback__)  # add limit=??
         pretty = traceback.format_list(stack)
         return ''.join(pretty) + '\n  {} {}'.format(exception.__class__, exception)
 
     @staticmethod
     def hash_exception(exception: Exception):
+        """
+        Create a hierarchical hash of the exception.
+        :param exception:
+        :return:
+        """
         stack_trace = LogEntryParser.exception_to_string(exception)
         stack_trace_lines = stack_trace.split('\n')
         stack_trace_lines = stack_trace_lines[:-2]
@@ -78,7 +85,11 @@ class LogEntryParser:
 
     @staticmethod
     def parse_log_entry(log_entry: LogEntry):
-
+        """
+        Parse the log entry into a data transfer object (basically a dictionary).
+        :param log_entry:
+        :return:
+        """
         exception = log_entry.exception
         exception_info = None
 
@@ -126,21 +137,21 @@ class Logger:
 
     @staticmethod
     def with_sinks(sinks: list):
-        '''
+        """
         Append the given sinks to all structured loggers.
         :param sinks:
         :return:
-        '''
+        """
         for sink in sinks:
             Logger.with_sink(sink)
 
     @staticmethod
     def with_sink(sink):
-        '''
+        """
         Append the given sink to all structured loggers.
         :param sink:
         :return:
-        '''
+        """
         Logger.sinks.append(sink)
         sink.setFormatter(JsonFormatter())  # all appended sinks get the json formatter in order to log only structured messages
 
@@ -168,11 +179,11 @@ class Logger:
         self.logger.setLevel(logging.DEBUG)
 
     def set_level(self, level):
-        '''
+        """
         Set the general log level.
         :param level:
         :return:
-        '''
+        """
         self.logger.setLevel(level)
 
     def log(self, log_entry: LogEntry):
@@ -217,19 +228,19 @@ class Logger:
 
 
 class JsonFormatter(logging.Formatter):
-    '''
+    """
     The Json formatter turns all types of classes into dictionaries, and then formats it into a json.
-    '''
+    """
 
     def __init__(self, fmt=None, datefmt=None, style='%'):
         logging.Formatter.__init__(self)
 
     def to_dict(self, obj, classkey=None):
-        '''
+        """
         This method allows us to turn arbitrary objects into dictionaries. This should be sufficient for most purposes.
         :param classkey:
         :return:
-        '''
+        """
         if isinstance(obj, dict):
             data = {}
             for (k, v) in obj.items():

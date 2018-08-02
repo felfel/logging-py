@@ -36,7 +36,7 @@ if __name__ == "__main__":
                 if div == 1:
                     raise Exception("Because I can")
 
-                logger.warning(payload_type="MathOperation", data={
+                logger.info(payload_type="MathOperation", message='You performed a division', data={
                     "OperationType": "Division",
                     "OperationDetails": {
                         "Div": div,
@@ -46,7 +46,7 @@ if __name__ == "__main__":
                 )
 
             except Exception as e:
-                logger.fatal(e, "CalculationError", {"Message": "What the fck just happened???"})
+                logger.fatal(message='What the fck just happened???', exception=e, payload_type="CalculationError")
 
             if i % 100 == 0:
                 time.sleep(random.randint(10, 5000)/1000)

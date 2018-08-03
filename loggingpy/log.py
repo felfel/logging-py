@@ -115,7 +115,7 @@ class LogEntryParser:
             Logger.data_property_placeholder_name: data  # here we set the data property with a special key
         }
 
-        if log_entry.message is not "" or log_entry.message is not None:
+        if log_entry.message is not "" and log_entry.message is not None:
             dto["message"] = log_entry.message
 
         if exception_info is not None:

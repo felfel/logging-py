@@ -119,7 +119,7 @@ class LogEntryParser:
             dto["message"] = log_entry.message
 
         if exception_info is not None:
-            dto["exception"] = {
+            dto["exception_info"] = {
                 "exception_type": exception_info.exception_type,
                 "error_message": exception_info.error_message,
                 "stack_trace": exception_info.stack_trace,

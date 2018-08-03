@@ -13,7 +13,7 @@ while True:
     time.sleep(random.randint(10, 50)/1000)
     try:
         1/0
-    except:
-        i+=1
+    except Exception as e:
+        i += 1
         print('logging...' + str(i))
         logger.exception("Send some message " + str(i))

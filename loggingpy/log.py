@@ -115,7 +115,7 @@ class LogEntryParser:
             Logger.data_property_placeholder_name: data  # here we set the data property with a special key
         }
 
-        if log_entry.message is not "" or log_entry.message is not None:
+        if log_entry.message is not "" and log_entry.message is not None:
             dto["message"] = log_entry.message
 
         if exception_info is not None:
@@ -268,13 +268,15 @@ class JsonFormatter(logging.Formatter):
     def format(self, record):
         """Formats a log record and serializes to json"""
 
+        record.msg = logging.Formatter.format(self, record)  # format the message using the base formatter
+
         if hasattr(record, 'log_entry'):
             log_entry = record.log_entry
         else:
             log_entry = LogEntry(log_level=LogLevel(record.levelno),
                                  context=record.name,
                                  payload_type='ExternalLoggerMessage',
-                                 message=record.msg % record.args if record.args is not None else record.msg)
+                                 message=record.msg)
 
         dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
 

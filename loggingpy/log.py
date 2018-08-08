@@ -7,6 +7,7 @@ import queue
 import json
 import hashlib
 import re
+import uuid
 from loggingpy.exceptions import ExceptionInfo
 from typing import Union
 
@@ -248,10 +249,23 @@ class JsonFormatter(logging.Formatter):
             for (k, v) in obj.items():
                 data[k] = self.to_dict(v, classkey)
             return data
+
+        elif isinstance(obj, uuid.UUID):
+        """
+        Special case for UUID, if not __dict__ repr of uuid will be returned
+        """
+            return str(obj)
+
+        elif isinstance(obj, datetime.datetime):
+            local_timezone = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+            return str(obj.astimezone(local_timezone))
+
         elif hasattr(obj, "_ast"):
             return self.to_dict(obj._ast())
+
         elif hasattr(obj, "__iter__") and not isinstance(obj, str):
             return [self.to_dict(v, classkey) for v in obj]
+
         elif hasattr(obj, "__dict__"):
             data = dict([(key, self.to_dict(value, classkey))
                          for key, value in obj.__dict__.items()
@@ -259,9 +273,7 @@ class JsonFormatter(logging.Formatter):
             if classkey is not None and hasattr(obj, "__class__"):
                 data[classkey] = obj.__class__.__name__
             return data
-        elif isinstance(obj, datetime.datetime):
-            local_timezone = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
-            return str(obj.astimezone(local_timezone))
+
         else:
             return obj
 

@@ -111,9 +111,13 @@ class LogEntryParser:
             "timestamp": log_entry.timestamp,
             "level": log_entry.log_level.name,
             "context": "" if log_entry.context is None else log_entry.context,
-            "payload_type": "" if log_entry.payload_type is None else log_entry.payload_type,
-            Logger.data_property_placeholder_name: data  # here we set the data property with a special key
         }
+
+        if log_entry.payload_type is not None and log_entry.payload_type != '':
+            dto["payload_type"] = log_entry.payload_type
+
+        if data is not None:
+            dto[Logger.data_property_placeholder_name] = data  # here we set the data property with a special key
 
         if log_entry.message is not "" and log_entry.message is not None:
             dto["message"] = log_entry.message
@@ -157,7 +161,7 @@ class Logger:
         Logger.sinks.append(sink)
         sink.setFormatter(JsonFormatter())  # all appended sinks get the json formatter in order to log only structured messages
 
-    def __init__(self, context: str = "", prefix_payload_type: bool = True):
+    def __init__(self, context: str, prefix_payload_type: bool = True):
         self.context = context
         self.logger = logging.getLogger(context)
         self.handlers = []
@@ -197,26 +201,28 @@ class Logger:
 
     def write_entry(self, log_level: Enum, payload_type: str, message: str='', data=None, exception: Exception = None):
 
-        if self.prefix_payload_type and self.context is not None and self.context is not "":
-            payload_type = self.context + '.' + payload_type
+        if self.context and self.prefix_payload_type:
+            if payload_type:
+                payload_type = self.context + '.' + payload_type
+
         log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, message=message, data=data, exception=exception)
         self.log(log_entry)
 
     # convenience methods
 
-    def debug(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+    def debug(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
         self.write_entry(LogLevel.Debug, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def info(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+    def info(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
         self.write_entry(LogLevel.Info, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def warning(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+    def warning(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
         self.write_entry(LogLevel.Warning, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def error(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+    def error(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
         self.write_entry(LogLevel.Error, payload_type=payload_type, message=message, data=data, exception=exception)
 
-    def fatal(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
+    def fatal(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
         self.write_entry(LogLevel.Fatal, payload_type=payload_type, message=message, data=data, exception=exception)
 
     @staticmethod
@@ -282,6 +288,17 @@ class JsonFormatter(logging.Formatter):
 
         try:
             json_dto = json.dumps(self.to_dict(dto), default=str)
+
+            if Logger.data_property_placeholder_name in dto and dto[Logger.data_property_placeholder_name] is not None:
+                if 'payload_type' in dto:
+                    property_name = dto['payload_type']
+                else:
+                    property_name = dto['context']
+
+                property_name = property_name.replace('.', '_')
+
+                property_name = self.underscore(property_name)
+                json_dto = json_dto.replace(Logger.data_property_placeholder_name, property_name)
         except Exception as e:  # if it fails to serialize the dto
             json_dto = json.dumps(self.to_dict({
                 "timestamp": datetime.datetime.utcnow(),
@@ -291,11 +308,6 @@ class JsonFormatter(logging.Formatter):
                 "payload_type": "Logging.Error",
                 Logger.data_property_placeholder_name: LogEntryParser.exception_to_string(e)
             }))
-
-        if dto[Logger.data_property_placeholder_name] is not None:
-            property_name = (dto['payload_type'] or dto['context']).replace('.', '_')
-            property_name = self.underscore(property_name)
-            json_dto = json_dto.replace(Logger.data_property_placeholder_name, property_name)
 
         return json_dto
 

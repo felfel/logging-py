@@ -117,21 +117,15 @@ class LogEntryParser:
         if log_entry.payload_type is not None and log_entry.payload_type != '':  # add payload type if any
             dto["payload_type"] = log_entry.payload_type
 
-        if 'payload_type' in dto:                                   # set data key to formatted payload type
-            property_name = dto['payload_type']                     # we do this in order to allow structured logging
-        else:                                                       # systems to index for the data key
-            property_name = 'missing_payload_type' + str(random.randint(0, 1000000))
+            if data is not None:
+                property_name = dto['payload_type'].replace('.', '_')
+                property_name = LogEntryParser.underscore(property_name)
+                dto[property_name] = data                                   # add data if any
 
-        property_name = property_name.replace('.', '_')
-        property_name = LogEntryParser.underscore(property_name)
-
-        if data is not None:
-            dto[property_name] = data                               # add data if any
-
-        if log_entry.message is not "" and log_entry.message is not None:  # add message if any
+        if log_entry.message is not "" and log_entry.message is not None:   # add message if any
             dto["message"] = log_entry.message
 
-        if exception_info is not None:                              # add exception if any
+        if exception_info is not None:                                      # add exception if any
             dto["exception_info"] = {
                 "exception_type": exception_info.exception_type,
                 "error_message": exception_info.error_message,
@@ -227,20 +221,23 @@ class Logger:
 
     def _write_entry(self, log_level: Enum, payload_type: str, message: str= '', data=None, exception: Exception = None):
 
-        if self.context and self.prefix_payload_type:
-            if payload_type:
-                payload_type = self.context + '.' + payload_type
-
-        log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, message=message, data=data, exception=exception)
-        self._log(log_entry)
-
-        if payload_type is '' and data is not None:
-            log_entry = LogEntry(context="",
+        second_log_entry = None
+        if data is not None and payload_type is '':
+            payload_type = 'MissingPayloadType' + str(random.randint(0, 1000000))
+            second_log_entry = LogEntry(context="",
                                  log_level=log_level,
                                  payload_type='',
                                  message="The previous message lacks a payload type, but appends payload."
                                          " Don't be lazy, add a payload type.")
-            self._log(log_entry)
+
+        if self.context and self.prefix_payload_type:
+            payload_type = self.context + '.' + payload_type
+
+        log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, message=message, data=data, exception=exception)
+        self._log(log_entry)
+
+        if second_log_entry is not None:
+            self._log(second_log_entry)
 
     # convenience methods
 

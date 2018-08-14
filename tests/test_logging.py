@@ -32,7 +32,7 @@ def test_data_but_no_payload_type():
             assert record.msg == '1'  # this is the first message
             assert 'missing_payload_type' in formatted_string
         if record_count == 1:
-            assert record.msg == "The previous message lacks a payload type, but appends payload. Dont be lazy, add a payload type."  # this is the second message because of the first message
+            assert record.msg == "The previous message lacks a payload type, but appends payload. Don't be lazy, add a payload type."  # this is the second message because of the first message
 
         return 1
 
@@ -40,3 +40,4 @@ def test_data_but_no_payload_type():
     test_logger.debug(message='1', data={
         'stuff': 1
     })
+''

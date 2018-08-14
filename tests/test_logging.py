@@ -37,6 +37,6 @@ def test_data_but_no_payload_type():
         return 1
 
     test_sink.test_method = test
-    test_logger.debug(message='1', data={
+    test_logger.debug(message='1', payload={
         'stuff': 1
     })

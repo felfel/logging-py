@@ -29,7 +29,7 @@ class LogEntry:
     and from data and exception information (both optional).
     """
 
-    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, message='', data=None, exception: Exception=None):
+    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, message='', payload=None, exception: Exception=None):
         if timestamp is None:
             timestamp = datetime.datetime.utcnow()  # timestamp default must be set here because in the signature it is set to init time
         self.timestamp = timestamp
@@ -37,7 +37,7 @@ class LogEntry:
         self.payload_type = payload_type
         self.log_level = log_level
         self.message = message
-        self.data = data
+        self.payload = payload
         self.exception = exception
 
 
@@ -103,10 +103,10 @@ class LogEntryParser:
         # transparently wrap string values into an object to ensure a logged payload is always a JSON object rather
         # than a scalar. We do not care about other primitives etc. If somebody is willing to log an int, it'll just
         # get serialized
-        data = log_entry.data
+        payload = log_entry.payload
 
-        if type(data) is str:                                                   # turn string to json
-            data = {"Message": data}
+        if type(payload) is str:                                                # turn string to json
+            payload = {"Message": payload}
 
         dto = {                                                                 # build a dto
             "timestamp": log_entry.timestamp,
@@ -117,10 +117,10 @@ class LogEntryParser:
         if log_entry.payload_type is not None and log_entry.payload_type != '':  # add payload type if any
             dto["payload_type"] = log_entry.payload_type
 
-            if data is not None:
+            if payload is not None:
                 property_name = dto['payload_type'].replace('.', '_')
                 property_name = LogEntryParser.underscore(property_name)
-                dto[property_name] = data                                   # add data if any
+                dto[property_name] = payload                                # add payload if any
 
         if log_entry.message is not "" and log_entry.message is not None:   # add message if any
             dto["message"] = log_entry.message
@@ -219,10 +219,10 @@ class Logger:
 
         self.logger.log(log_entry.log_level.value, log_entry.message, extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
 
-    def _write_entry(self, log_level: Enum, payload_type: str, message: str= '', data=None, exception: Exception = None):
+    def _write_entry(self, log_level: Enum, payload_type: str, message: str= '', payload=None, exception: Exception = None):
 
         second_log_entry = None
-        if data is not None and payload_type is '':
+        if payload is not None and payload_type is '':
             payload_type = 'MissingPayloadType' + str(random.randint(0, 1000000))
             second_log_entry = LogEntry(context="",
                                  log_level=log_level,
@@ -235,7 +235,12 @@ class Logger:
         if self.context and self.prefix_payload_type:
             payload_type = self.context + '.' + payload_type
 
-        log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, message=message, data=data, exception=exception)
+        log_entry = LogEntry(context="",
+                             log_level=log_level,
+                             payload_type=payload_type,
+                             message=message,
+                             payload=payload,
+                             exception=exception)
         self._log(log_entry)
 
         if second_log_entry is not None:
@@ -243,20 +248,20 @@ class Logger:
 
     # convenience methods
 
-    def debug(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
-        self._write_entry(LogLevel.Debug, payload_type=payload_type, message=message, data=data, exception=exception)
+    def debug(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Debug, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
-    def info(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
-        self._write_entry(LogLevel.Info, payload_type=payload_type, message=message, data=data, exception=exception)
+    def info(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Info, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
-    def warning(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
-        self._write_entry(LogLevel.Warning, payload_type=payload_type, message=message, data=data, exception=exception)
+    def warning(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Warning, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
-    def error(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
-        self._write_entry(LogLevel.Error, payload_type=payload_type, message=message, data=data, exception=exception)
+    def error(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Error, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
-    def fatal(self, message: str='', exception: Exception=None, payload_type: str='', data: Union[str, dict]=None):
-        self._write_entry(LogLevel.Fatal, payload_type=payload_type, message=message, data=data, exception=exception)
+    def fatal(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Fatal, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
     @staticmethod
     def flush():

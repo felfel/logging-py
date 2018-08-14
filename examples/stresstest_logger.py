@@ -36,7 +36,7 @@ if __name__ == "__main__":
                 if div == 1:
                     raise Exception("Because I can")
 
-                logger.info(payload_type="MathOperation", message='You performed a division', data={
+                logger.info(payload_type="MathOperation", message='You performed a division', payload={
                     "OperationType": "Division",
                     "OperationDetails": {
                         "Div": div,

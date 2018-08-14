@@ -324,6 +324,9 @@ class JsonFormatter(logging.Formatter):
 
         dto = LogEntryParser.parse_log_entry(log_entry=log_entry)   # turn the log entry into a dto for serialization
 
+        if hasattr(record, 'app_name'):
+            dto['app_name'] = record.app_name
+
         try:
             json_dto = json.dumps(self.to_dict(dto), default=str)   # turn dto to json
         except Exception as e:  # if it fails to serialize the dto

@@ -40,9 +40,12 @@ class BundlingHttpSink(logging.Handler):
     Adjusted version from: https://github.com/logzio/logzio-python-handler/tree/master/logzio
     """
     def __init__(self,
+                 app_name,
                  url,
                  logs_drain_timeout=3,
                  debug=False):
+
+        self.app_name = app_name
 
         self.http_sender = HttpSender(
             url=url,
@@ -54,6 +57,7 @@ class BundlingHttpSink(logging.Handler):
         self.http_sender.flush()
 
     def emit(self, record):
+        record.app_name = self.app_name
         log_entry = self.format(record)
         self.http_sender.append(log_entry)
 

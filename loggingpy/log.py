@@ -261,7 +261,8 @@ class JsonFormatter(logging.Formatter):
             return data
         elif isinstance(obj, datetime.datetime):
             local_timezone = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
-            return str(obj.astimezone(local_timezone))
+            offset = datetime.datetime.now() - datetime.datetime.utcnow()
+            return str(obj.astimezone(local_timezone) + offset)
         else:
             return obj
 
@@ -288,8 +289,8 @@ class JsonFormatter(logging.Formatter):
                 "message": "Could not unwrap log entry.",
                 "level": LogLevel.Fatal,
                 "context": "Logging.Error",
-                "payload_type": "Logging.Error",
-                Logger.data_property_placeholder_name: LogEntryParser.exception_to_string(e)
+                "payload_type": "UnwrapError",
+                "logging_error": LogEntryParser.exception_to_string(e)
             }))
 
         if dto[Logger.data_property_placeholder_name] is not None:

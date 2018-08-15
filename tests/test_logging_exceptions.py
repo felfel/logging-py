@@ -13,26 +13,26 @@ class TestLoggingExceptions:
 
     def test_exception_information_should_be_present(self):
         dto = TestLoggingExceptions.create_dto()
-        assert dto['exception'] is not None
-        assert dto['exception']['error_message'] is TestLoggingExceptions.error_message
-        assert dto['exception']['exception_type'] == 'ZeroDivisionError'
-        assert dto['exception']['stack_trace'] is not None and dto['exception']['stack_trace'] is not ''
-        assert dto['exception']['exception_hash'] is not None and dto['exception']['exception_hash'] is not ''
+        assert dto['exception_info'] is not None
+        assert dto['exception_info']['error_message'] is TestLoggingExceptions.error_message
+        assert dto['exception_info']['exception_type'] == 'ZeroDivisionError'
+        assert dto['exception_info']['stack_trace'] is not None and dto['exception_info']['stack_trace'] is not ''
+        assert dto['exception_info']['exception_hash'] is not None and dto['exception_info']['exception_hash'] is not ''
 
     def test_same_exception_with_different_message_should_still_result_in_same_hash(self):
         dto1 = TestLoggingExceptions.create_dto(message='aaa')
         dto2 = TestLoggingExceptions.create_dto(message='bbb')
 
-        assert dto1['exception']['error_message'] == 'aaa'
-        assert dto2['exception']['error_message'] == 'bbb'
+        assert dto1['exception_info']['error_message'] == 'aaa'
+        assert dto2['exception_info']['error_message'] == 'bbb'
 
-        assert dto1['exception']['exception_hash'] == dto2['exception']['exception_hash']
+        assert dto1['exception_info']['exception_hash'] == dto2['exception_info']['exception_hash']
 
     def test_same_exception_type_can_result_in_different_hash(self):
         dto1 = TestLoggingExceptions.create_dto(True)
         dto2 = TestLoggingExceptions.create_dto(False)
 
-        assert dto1['exception']['exception_hash'] != dto2['exception']['exception_hash']
+        assert dto1['exception_info']['exception_hash'] != dto2['exception_info']['exception_hash']
 
     # helper methods
     @staticmethod

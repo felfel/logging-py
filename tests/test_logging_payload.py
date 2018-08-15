@@ -9,11 +9,13 @@ class TestLoggingPayload:
         pass
 
     def test_simple_string_should_still_be_json(self):
-        le = LogEntry(LogLevel.Info, context='Context', payload_type='type', data='hello world')
+        le = LogEntry(LogLevel.Info, context='Context', payload_type='type', payload='hello world')
         dto = LogEntryParser.parse_log_entry(le)
-        assert(not isinstance(dto['data'], str))
+        assert(not isinstance(dto['type'], str))
 
     def test_payload_should_be_directly_assigned(self):
-        le = LogEntry(LogLevel.Info, context='Context', payload_type='type')
+        le = LogEntry(LogLevel.Info, context='Context', payload_type='type', payload={
+            'stuff': 1
+        })
         dto = LogEntryParser.parse_log_entry(le)
-        assert dto['data'] == le.data
+        assert dto['type'] == le.payload

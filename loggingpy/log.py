@@ -6,6 +6,7 @@ import logging.handlers
 import queue
 import json
 import hashlib
+import random
 import re
 import uuid
 from loggingpy.exceptions import ExceptionInfo
@@ -29,15 +30,15 @@ class LogEntry:
     and from data and exception information (both optional).
     """
 
-    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, message='', data=None, exception: Exception=None):
+    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, message='', payload=None, exception: Exception=None):
         if timestamp is None:
-            timestamp = datetime.datetime.utcnow()
+            timestamp = datetime.datetime.utcnow()  # timestamp default must be set here because in the signature it is set to init time
         self.timestamp = timestamp
         self.context = context
         self.payload_type = payload_type
         self.log_level = log_level
         self.message = message
-        self.data = data
+        self.payload = payload
         self.exception = exception
 
 
@@ -92,34 +93,40 @@ class LogEntryParser:
         :return:
         """
         exception = log_entry.exception
-        exception_info = None
-
         if exception is not None:
             exception_info = ExceptionInfo(exception_type=exception.__class__.__name__,
                                            error_message=str(exception),
                                            stack_trace=LogEntryParser.exception_to_string(exception),
                                            exception_hash=LogEntryParser.hash_exception(exception))
+        else:
+            exception_info = None
 
         # transparently wrap string values into an object to ensure a logged payload is always a JSON object rather
         # than a scalar. We do not care about other primitives etc. If somebody is willing to log an int, it'll just
         # get serialized
-        data = log_entry.data
+        payload = log_entry.payload
 
-        if type(data) is str:
-            data = {"Message": data}
+        if type(payload) is str:                                                # turn string to json
+            payload = {"Message": payload}
 
-        dto = {
+        dto = {                                                                 # build a dto
             "timestamp": log_entry.timestamp,
             "level": log_entry.log_level.name,
             "context": "" if log_entry.context is None else log_entry.context,
-            "payload_type": "" if log_entry.payload_type is None else log_entry.payload_type,
-            Logger.data_property_placeholder_name: data  # here we set the data property with a special key
         }
 
-        if log_entry.message is not "" and log_entry.message is not None:
+        if log_entry.payload_type is not None and log_entry.payload_type != '':  # add payload type if any
+            dto["payload_type"] = log_entry.payload_type
+
+            if payload is not None:
+                property_name = dto['payload_type'].replace('.', '_')
+                property_name = LogEntryParser.underscore(property_name)
+                dto[property_name] = payload                                # add payload if any
+
+        if log_entry.message is not "" and log_entry.message is not None:   # add message if any
             dto["message"] = log_entry.message
 
-        if exception_info is not None:
+        if exception_info is not None:                                      # add exception if any
             dto["exception_info"] = {
                 "exception_type": exception_info.exception_type,
                 "error_message": exception_info.error_message,
@@ -129,13 +136,31 @@ class LogEntryParser:
 
         return dto
 
+    @staticmethod
+    def underscore(word):
+        # from https://github.com/jpvanhal/inflection/blob/2ea54f615924c5cfc967d50cc179eacf0b269c08/inflection.py#L394
+        # if you require more of this library, consider getting it as a dependency
+        """
+        Make an underscored, lowercase form from the expression in the string.
+        Example::
+            >>> underscore("DeviceType")
+            "device_type"
+        As a rule of thumb you can think of :func:`underscore` as the inverse of
+        :func:`camelize`, though there are cases where that does not hold::
+            >>> camelize(underscore("IOError"))
+            "IoError"
+        """
+        word = re.sub(r"([A-Z]+)([A-Z][a-z])", r'\1_\2', word)
+        word = re.sub(r"([a-z\d])([A-Z])", r'\1_\2', word)
+        word = word.replace("-", "_")
+        return word.lower()
+
 
 class Logger:
     """
     The structured logger is just a wrapper around the builtin standard python logger. It simplifies the interface of
     logging to make proper structured logger calls.
     """
-    data_property_placeholder_name = "@logentry_data"
     sinks = []
 
     @staticmethod
@@ -158,7 +183,7 @@ class Logger:
         Logger.sinks.append(sink)
         sink.setFormatter(JsonFormatter())  # all appended sinks get the json formatter in order to log only structured messages
 
-    def __init__(self, context: str = "", prefix_payload_type: bool = True):
+    def __init__(self, context: str, prefix_payload_type: bool = True):
         self.context = context
         self.logger = logging.getLogger(context)
         self.handlers = []
@@ -189,45 +214,63 @@ class Logger:
         """
         self.logger.setLevel(level)
 
-    def log(self, log_entry: LogEntry):
-
+    def _log(self, log_entry: LogEntry):
         if log_entry.context is None or log_entry.context is "":
             log_entry.context = self.context
 
         self.logger.log(log_entry.log_level.value, log_entry.message, extra={'log_entry': log_entry})  # exc_info=True, stack_info=True, add this to drop out some dto info
 
-    def write_entry(self, log_level: Enum, payload_type: str, message: str='', data=None, exception: Exception = None):
+    def _write_entry(self, log_level: Enum, payload_type: str, message: str= '', payload=None, exception: Exception = None):
 
-        if self.prefix_payload_type and self.context is not None and self.context is not "":
+        second_log_entry = None
+        if payload is not None and payload_type is '':
+            payload_type = 'MissingPayloadType' + str(random.randint(0, 1000000))
+            second_log_entry = LogEntry(context="",
+                                 log_level=log_level,
+                                 payload_type='',
+                                 message="The previous message lacks a payload type, but appends payload."
+                                         " Autogenerated payload type "
+                                         + payload_type +
+                                         ". Don't be lazy, add a payload type.")
+
+        if self.context and self.prefix_payload_type:
             payload_type = self.context + '.' + payload_type
-        log_entry = LogEntry(context="", log_level=log_level, payload_type=payload_type, message=message, data=data, exception=exception)
-        self.log(log_entry)
+
+        log_entry = LogEntry(context="",
+                             log_level=log_level,
+                             payload_type=payload_type,
+                             message=message,
+                             payload=payload,
+                             exception=exception)
+        self._log(log_entry)
+
+        if second_log_entry is not None:
+            self._log(second_log_entry)
 
     # convenience methods
 
-    def debug(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Debug, payload_type=payload_type, message=message, data=data, exception=exception)
+    def debug(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Debug, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
-    def info(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Info, payload_type=payload_type, message=message, data=data, exception=exception)
+    def info(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Info, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
-    def warning(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Warning, payload_type=payload_type, message=message, data=data, exception=exception)
+    def warning(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Warning, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
-    def error(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Error, payload_type=payload_type, message=message, data=data, exception=exception)
+    def error(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Error, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
-    def fatal(self, message: str='', exception: Exception=None, payload_type: str='Undefined', data: Union[str, dict]=None):
-        self.write_entry(LogLevel.Fatal, payload_type=payload_type, message=message, data=data, exception=exception)
+    def fatal(self, message: str='', exception: Exception=None, payload_type: str='', payload: Union[str, dict]=None):
+        self._write_entry(LogLevel.Fatal, payload_type=payload_type, message=message, payload=payload, exception=exception)
 
     @staticmethod
     def flush():
+        """
+        Flush all sinks.
+        :return:
+        """
         [h.flush() for h in Logger.sinks]
-
-    @staticmethod
-    def shutdown():
-        Logger.flush()
-        [h.close() for h in Logger.sinks]
 
 
 class JsonFormatter(logging.Formatter):
@@ -251,9 +294,9 @@ class JsonFormatter(logging.Formatter):
             return data
 
         elif isinstance(obj, uuid.UUID):
-        """
-        Special case for UUID, if not __dict__ repr of uuid will be returned
-        """
+            """
+            Special case for UUID, if not __dict__ repr of uuid will be returned
+            """
             return str(obj)
 
         elif isinstance(obj, datetime.datetime):
@@ -274,6 +317,10 @@ class JsonFormatter(logging.Formatter):
                 data[classkey] = obj.__class__.__name__
             return data
 
+        elif isinstance(obj, datetime.datetime):
+            local_timezone = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+            offset = datetime.datetime.now() - datetime.datetime.utcnow()
+            return str(obj.astimezone(local_timezone) + offset)
         else:
             return obj
 
@@ -290,43 +337,23 @@ class JsonFormatter(logging.Formatter):
                                  payload_type='ExternalLoggerMessage',
                                  message=record.msg)
 
-        dto = LogEntryParser.parse_log_entry(log_entry=log_entry)
+        dto = LogEntryParser.parse_log_entry(log_entry=log_entry)   # turn the log entry into a dto for serialization
+
+        if hasattr(record, 'app_name'):
+            dto['app_name'] = record.app_name
 
         try:
-            json_dto = json.dumps(self.to_dict(dto), default=str)
+            json_dto = json.dumps(self.to_dict(dto), default=str)   # turn dto to json
         except Exception as e:  # if it fails to serialize the dto
             json_dto = json.dumps(self.to_dict({
                 "timestamp": datetime.datetime.utcnow(),
                 "message": "Could not unwrap log entry.",
                 "level": LogLevel.Fatal,
                 "context": "Logging.Error",
-                "payload_type": "Logging.Error",
-                Logger.data_property_placeholder_name: LogEntryParser.exception_to_string(e)
+                "payload_type": "UnwrapError",
+                "logging_error": LogEntryParser.exception_to_string(e)
             }))
-
-        if dto[Logger.data_property_placeholder_name] is not None:
-            property_name = (dto['payload_type'] or dto['context']).replace('.', '_')
-            property_name = self.underscore(property_name)
-            json_dto = json_dto.replace(Logger.data_property_placeholder_name, property_name)
 
         return json_dto
 
-    @staticmethod
-    def underscore(word):
-        # from https://github.com/jpvanhal/inflection/blob/2ea54f615924c5cfc967d50cc179eacf0b269c08/inflection.py#L394
-        # if you require more of this library, consider getting it as a dependency
-        """
-        Make an underscored, lowercase form from the expression in the string.
-        Example::
-            >>> underscore("DeviceType")
-            "device_type"
-        As a rule of thumb you can think of :func:`underscore` as the inverse of
-        :func:`camelize`, though there are cases where that does not hold::
-            >>> camelize(underscore("IOError"))
-            "IoError"
-        """
-        word = re.sub(r"([A-Z]+)([A-Z][a-z])", r'\1_\2', word)
-        word = re.sub(r"([a-z\d])([A-Z])", r'\1_\2', word)
-        word = word.replace("-", "_")
-        return word.lower()
 

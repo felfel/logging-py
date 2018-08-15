@@ -14,8 +14,8 @@ if __name__ == "__main__":
     elasticUri = uris.elasticUri
 
     # these are two sinks of type BatchedHttpSink, which extend the logging.Handler class
-    sumoSink = BundlingHttpSink(sumoUri)
-    elasticSink = BundlingHttpSink(elasticUri)
+    sumoSink = BundlingHttpSink('test_app', sumoUri)
+    elasticSink = BundlingHttpSink('test_app', elasticUri)
 
     # however, you can use basic logging.Handler derived classes together with the ones here
     stdoutSink = logging.StreamHandler(sys.stdout)
@@ -36,7 +36,7 @@ if __name__ == "__main__":
                 if div == 1:
                     raise Exception("Because I can")
 
-                logger.info(payload_type="MathOperation", message='You performed a division', data={
+                logger.info(payload_type="MathOperation", message='You performed a division', payload={
                     "OperationType": "Division",
                     "OperationDetails": {
                         "Div": div,

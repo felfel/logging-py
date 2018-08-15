@@ -26,9 +26,8 @@ def get_logger(debug):
 
 
 def backup_logs(logs, logger):
-    timestamp = datetime.now().strftime('%d%m%Y-%H%M%S')
-    logger.info(
-        'Backing up your logs to http-upload-failures-%s.txt', timestamp)
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    logger.info('Backing up your logs to http-upload-failures-%s.txt', timestamp)
     with open('http-upload-failures-{}.txt'.format(timestamp), 'a') as f:
         f.writelines('\n'.join(logs))
 

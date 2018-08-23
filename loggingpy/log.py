@@ -205,6 +205,7 @@ class Logger:
             self.handlers.extend(Logger.sinks)
 
         self.logger.setLevel(logging.DEBUG)
+        self.logger.propagate = False
 
     def set_level(self, level):
         """

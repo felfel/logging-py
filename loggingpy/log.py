@@ -1,5 +1,6 @@
 from enum import Enum
 import datetime
+import pytz
 import traceback
 import logging
 import logging.handlers
@@ -30,9 +31,24 @@ class LogEntry:
     and from data and exception information (both optional).
     """
 
-    def __init__(self, log_level: Enum, context: str, payload_type: str, timestamp: datetime=None, message='', payload=None, exception: Exception=None):
+    def __init__(
+        self,
+        log_level: Enum,
+        context: str,
+        payload_type: str,
+        timestamp: datetime=None,
+        message='',
+        payload=None,
+        exception: Exception=None
+    ):
+        
+        # timestamp default must be set here because in the signature it is set to init time
         if timestamp is None:
-            timestamp = datetime.datetime.utcnow()  # timestamp default must be set here because in the signature it is set to init time
+            timestamp = pytz.UTC.localize(datetime.datetime.utcnow())
+        else:
+            if not timestamp.tzinfo:
+                raise ValueError("Timestamp provided should not be naive")
+
         self.timestamp = timestamp
         self.context = context
         self.payload_type = payload_type
@@ -297,10 +313,6 @@ class JsonFormatter(logging.Formatter):
             """
             return str(obj)
 
-        elif isinstance(obj, datetime.datetime):
-            local_timezone = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
-            return str(obj.astimezone(local_timezone))
-
         elif hasattr(obj, "_ast"):
             return self.to_dict(obj._ast())
 
@@ -315,10 +327,6 @@ class JsonFormatter(logging.Formatter):
                 data[classkey] = obj.__class__.__name__
             return data
 
-        elif isinstance(obj, datetime.datetime):
-            local_timezone = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
-            offset = datetime.datetime.now() - datetime.datetime.utcnow()
-            return str(obj.astimezone(local_timezone) + offset)
         else:
             return obj
 

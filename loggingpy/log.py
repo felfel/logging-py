@@ -343,6 +343,9 @@ class JsonFormatter(logging.Formatter):
         if hasattr(record, 'app_name'):
             dto['app_name'] = record.app_name
 
+        if hasattr(record, 'environment'):
+            dto['env'] = record.environment
+
         try:
             json_dto = json.dumps(self.to_dict(dto), default=str)   # turn dto to json
         except Exception as e:  # if it fails to serialize the dto

@@ -63,4 +63,3 @@ class BundlingHttpSink(logging.Handler):
         record.environment = self.environment
         log_entry = self.format(record)
         self.http_sender.append(log_entry)
-

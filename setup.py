@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 
 setup(name='logging-py',
-      version='0.3.16',
+      version='0.3.17',
       url='https://github.com/felfel/logging-py',
       license='MIT License',
       author='felfel',
